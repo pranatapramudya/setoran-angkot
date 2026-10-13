@@ -9,7 +9,6 @@ import {
   OfflineAngkot,
   OfflineSetoran,
   OfflinePengeluaran,
-  deleteOfflineSetoran
 } from '@/lib/offlineStorage'
 import { DashboardClient } from '@/components/DashboardClient'
 import { SkeletonList } from '@/components/SkeletonList'
@@ -20,6 +19,17 @@ export default function Page() {
   const [angkotList, setAngkotList] = useState<OfflineAngkot[]>([])
   const [setoranList, setSetoranList] = useState<OfflineSetoran[]>([])
   const [pengeluaranList, setPengeluaranList] = useState<OfflinePengeluaran[]>([])
+
+  // State tanggal terpilih (Default: Hari Ini YYYY-MM-DD lokal)
+  const getTodayStr = () => {
+    const d = new Date()
+    const year = d.getFullYear()
+    const month = String(d.getMonth() + 1).padStart(2, '0')
+    const day = String(d.getDate()).padStart(2, '0')
+    return `${year}-${month}-${day}`
+  }
+
+  const [selectedDateStr, setSelectedDateStr] = useState<string>(getTodayStr())
 
   const loadData = () => {
     const j = getOfflineJuragan()
@@ -51,14 +61,14 @@ export default function Page() {
     )
   }
 
-  // Filter transaksi hari ini (00:00 - 23:59)
-  const now = new Date()
-  const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0).getTime()
-  const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999).getTime()
+  // Parse tanggal terpilih (start & end of selected day)
+  const [y, m, d] = selectedDateStr.split('-').map(Number)
+  const startOfDay = new Date(y, m - 1, d, 0, 0, 0, 0).getTime()
+  const endOfDay = new Date(y, m - 1, d, 23, 59, 59, 999).getTime()
 
-  // Filter transaksi bulan ini
-  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0).getTime()
-  const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999).getTime()
+  // Filter transaksi bulan dari tanggal terpilih
+  const startOfMonth = new Date(y, m - 1, 1, 0, 0, 0, 0).getTime()
+  const endOfMonth = new Date(y, m, 0, 23, 59, 59, 999).getTime()
 
   const setoranHariIni = setoranList.filter((item) => {
     const t = new Date(item.tanggal).getTime()
@@ -80,7 +90,7 @@ export default function Page() {
     return t >= startOfMonth && t <= endOfMonth
   })
 
-  // Map ke tampilan kartu mobil
+  // Map ke tampilan kartu mobil (status setor pada tanggal terpilih)
   const angkotFormatted = angkotList.map((a) => {
     const sHariIni = setoranHariIni.find((s) => s.angkotId === a.id)
     return {
@@ -133,6 +143,8 @@ export default function Page() {
       setoranBulanIni={formatRecords(setoranBulanIni)}
       pengeluaranHariIni={pengeluaranHariIni}
       pengeluaranBulanIni={pengeluaranBulanIni}
+      selectedDateStr={selectedDateStr}
+      onSelectDate={(newDate) => setSelectedDateStr(newDate)}
       onDataChange={loadData}
     />
   )

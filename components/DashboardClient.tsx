@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Plus, Bus, RefreshCw, Settings, TrendingDown } from 'lucide-react'
+import { Plus, Bus, RefreshCw, Settings, TrendingDown, Calendar, ChevronLeft, ChevronRight } from 'lucide-react'
 import { MobilCard } from './MobilCard'
 import { NumpadModal, SelectedAngkotData } from './NumpadModal'
 import { SuccessModal } from './SuccessModal'
@@ -24,6 +24,8 @@ interface DashboardClientProps {
   setoranBulanIni: SetoranRecord[]
   pengeluaranHariIni: OfflinePengeluaran[]
   pengeluaranBulanIni: OfflinePengeluaran[]
+  selectedDateStr: string
+  onSelectDate: (dateStr: string) => void
 }
 
 export function DashboardClient({
@@ -36,6 +38,8 @@ export function DashboardClient({
   setoranBulanIni,
   pengeluaranHariIni,
   pengeluaranBulanIni,
+  selectedDateStr,
+  onSelectDate,
 }: DashboardClientProps) {
   const [activeTab, setActiveTab] = useState<'setor' | 'buku-kas'>('setor')
   const [tenantNama, setTenantNama] = useState(initialTenantNama)
@@ -63,6 +67,39 @@ export function DashboardClient({
   })
 
   const belumSetorCount = angkotList.filter((a) => !a.setoranHariIni).length
+
+  // Date formatting helpers
+  const refDate = new Date(selectedDateStr + 'T12:00:00')
+  const isToday = () => {
+    const today = new Date()
+    return (
+      refDate.getDate() === today.getDate() &&
+      refDate.getMonth() === today.getMonth() &&
+      refDate.getFullYear() === today.getFullYear()
+    )
+  }
+
+  const handlePrevDay = () => {
+    playClickSound()
+    triggerHaptic(30)
+    const d = new Date(selectedDateStr + 'T12:00:00')
+    d.setDate(d.getDate() - 1)
+    const yStr = d.getFullYear()
+    const mStr = String(d.getMonth() + 1).padStart(2, '0')
+    const dStr = String(d.getDate()).padStart(2, '0')
+    onSelectDate(`${yStr}-${mStr}-${dStr}`)
+  }
+
+  const handleNextDay = () => {
+    playClickSound()
+    triggerHaptic(30)
+    const d = new Date(selectedDateStr + 'T12:00:00')
+    d.setDate(d.getDate() + 1)
+    const yStr = d.getFullYear()
+    const mStr = String(d.getMonth() + 1).padStart(2, '0')
+    const dStr = String(d.getDate()).padStart(2, '0')
+    onSelectDate(`${yStr}-${mStr}-${dStr}`)
+  }
 
   const handleOpenSetor = (angkot: SelectedAngkotData) => {
     setSelectedAngkot(angkot)
@@ -148,8 +185,54 @@ export function DashboardClient({
             </div>
           </div>
 
+          {/* DATE PICKER & NAVIGASI TANGGAL */}
+          <div className="mt-3 pt-3 border-t border-slate-100 flex items-center justify-between gap-2">
+            <button
+              type="button"
+              onClick={handlePrevDay}
+              className="w-8 h-8 rounded-lg bg-slate-100 hover:bg-slate-200 active:scale-95 text-slate-700 flex items-center justify-center cursor-pointer border border-slate-200 transition-colors"
+              title="Hari Sebelumnya"
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </button>
+
+            <div className="flex-1 flex items-center justify-center gap-2 bg-slate-100/90 hover:bg-slate-200/80 px-3 py-1.5 rounded-xl border border-slate-200 relative cursor-pointer">
+              <Calendar className="w-4 h-4 text-amber-600 shrink-0" />
+              <input
+                type="date"
+                value={selectedDateStr}
+                onChange={(e) => {
+                  if (e.target.value) {
+                    playClickSound()
+                    onSelectDate(e.target.value)
+                  }
+                }}
+                className="absolute inset-0 opacity-0 w-full h-full cursor-pointer z-10"
+              />
+              <div className="text-center">
+                <span className="text-xs font-black text-slate-900 block leading-tight">
+                  {refDate.toLocaleDateString('id-ID', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })}
+                </span>
+                {isToday() && (
+                  <span className="text-[10px] font-black text-emerald-600 block leading-none">
+                    (Hari Ini)
+                  </span>
+                )}
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={handleNextDay}
+              className="w-8 h-8 rounded-lg bg-slate-100 hover:bg-slate-200 active:scale-95 text-slate-700 flex items-center justify-center cursor-pointer border border-slate-200 transition-colors"
+              title="Hari Berikutnya"
+            >
+              <ChevronRight className="w-4 h-4" />
+            </button>
+          </div>
+
           {/* BADGE STATUS OPERASIONAL HARI INI */}
-          <div className="mt-3 pt-3 border-t border-slate-100 grid grid-cols-3 gap-2 text-center">
+          <div className="mt-2.5 grid grid-cols-3 gap-2 text-center">
             <div className="bg-slate-50 rounded-xl py-2 px-2 border border-slate-200">
               <span className="text-[10px] text-slate-500 font-bold block uppercase">TOTAL MOBIL</span>
               <span className="text-base font-black text-slate-900">{angkotList.length} Unit</span>
@@ -186,7 +269,7 @@ export function DashboardClient({
               <div className="flex items-center justify-between pt-1">
                 <div>
                   <h2 className="text-lg font-black text-slate-900 tracking-tight">
-                    DAFTAR MOBIL HARI INI
+                    DAFTAR MOBIL {isToday() ? 'HARI INI' : ''}
                   </h2>
                   <p className="text-xs text-slate-500 font-bold">
                     Pilih mobil di bawah untuk masukkan uang setoran
@@ -244,6 +327,7 @@ export function DashboardClient({
               rawAngkotList={rawAngkotList}
               totalMobil={angkotList.length}
               namaJuragan={tenantNama}
+              currentSelectedDate={selectedDateStr}
               onTambahMobilClick={() => setIsTambahOpen(true)}
               onCatatPengeluaranClick={() => setIsCatatPengeluaranOpen(true)}
               onDataChange={onDataChange}
@@ -255,6 +339,7 @@ export function DashboardClient({
         <NumpadModal
           isOpen={isNumpadOpen}
           angkot={selectedAngkot}
+          currentSelectedDate={selectedDateStr}
           onClose={() => setIsNumpadOpen(false)}
           onSuccess={handleSetoranSuccess}
         />
@@ -305,10 +390,14 @@ export function DashboardClient({
           onSuccess={(newNama) => setTenantNama(newNama)}
         />
 
-        {/* BOTTOM NAVIGATION FIXED */}
+        {/* BOTTOM NAVIGATION DUA MENU UTAMA */}
         <BottomNav
           activeTab={activeTab}
-          onChangeTab={setActiveTab}
+          onChangeTab={(tab: 'setor' | 'buku-kas') => {
+            playClickSound()
+            triggerHaptic(40)
+            setActiveTab(tab)
+          }}
           belumSetorCount={belumSetorCount}
         />
       </main>

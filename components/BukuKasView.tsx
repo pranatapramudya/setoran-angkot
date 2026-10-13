@@ -15,7 +15,6 @@ import {
   Car,
   User,
   Building2,
-  DollarSign
 } from 'lucide-react'
 import { deleteOfflineSetoran, deleteOfflinePengeluaran, OfflinePengeluaran, OfflineAngkot } from '@/lib/offlineStorage'
 import { playClickSound, triggerHaptic } from '@/lib/audio'
@@ -44,6 +43,7 @@ interface BukuKasViewProps {
   rawAngkotList: OfflineAngkot[]
   totalMobil: number
   namaJuragan: string
+  currentSelectedDate?: string
   onTambahMobilClick: () => void
   onCatatPengeluaranClick: () => void
   onDataChange?: () => void
@@ -57,6 +57,7 @@ export function BukuKasView({
   rawAngkotList,
   totalMobil,
   namaJuragan,
+  currentSelectedDate,
   onTambahMobilClick,
   onCatatPengeluaranClick,
   onDataChange,
@@ -66,9 +67,16 @@ export function BukuKasView({
   const [copied, setCopied] = useState(false)
   const [isPending, startTransition] = useTransition()
 
-  const now = new Date()
-  const namaBulanTahun = now.toLocaleDateString('id-ID', {
+  // Format tanggal aktif
+  const refDate = currentSelectedDate ? new Date(currentSelectedDate + 'T12:00:00') : new Date()
+  const namaBulanTahun = refDate.toLocaleDateString('id-ID', {
     month: 'long',
+    year: 'numeric',
+  })
+  const labelHariIni = refDate.toLocaleDateString('id-ID', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'short',
     year: 'numeric',
   })
 
@@ -127,14 +135,14 @@ export function BukuKasView({
     let text = ''
     const periodeLabel =
       periodeMode === 'harian'
-        ? now.toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
+        ? labelHariIni
         : `Bulan ${namaBulanTahun}`
 
     text += `*LAPORAN BUKU KAS SETORAN ANGKOT*\n`
     text += `Juragan: ${namaJuragan}\n`
     text += `Periode: ${periodeLabel}\n\n`
-    text += `🟢 *TOTAL PENDAPATAN (SETORAN): Rp ${totalPendapatan.toLocaleString('id-ID')}*\n`
-    text += `🔴 *TOTAL PENGELUARAN KESELURUHAN: Rp ${totalPengeluaranKeseluruhan.toLocaleString('id-ID')}*\n`
+    text += `💵 *TOTAL PENDAPATAN (SETORAN): Rp ${totalPendapatan.toLocaleString('id-ID')}*\n`
+    text += `🔻 *TOTAL PENGELUARAN KESELURUHAN: Rp ${totalPengeluaranKeseluruhan.toLocaleString('id-ID')}*\n`
     text += `   - Pengeluaran Armada: Rp ${totalPengeluaranArmada.toLocaleString('id-ID')}\n`
     text += `   - Pengeluaran Umum/Kantor: Rp ${totalPengeluaranUmum.toLocaleString('id-ID')}\n`
     text += `💰 *PENDAPATAN BERSIH / SISA KAS: Rp ${pendapatanBersih.toLocaleString('id-ID')}*\n\n`
@@ -234,7 +242,7 @@ export function BukuKasView({
         </button>
       </div>
 
-      {/* KARTU RINGKASAN BUKU KAS (CLEAN LIGHT - TANPA DARK MODE) */}
+      {/* KARTU RINGKASAN BUKU KAS (CLEAN LIGHT) */}
       <div className="bg-white border-2 border-slate-200 rounded-3xl p-5 shadow-sm space-y-4">
         <div className="flex items-center justify-between border-b border-slate-100 pb-3">
           <div className="flex items-center gap-2.5">
@@ -243,15 +251,15 @@ export function BukuKasView({
             </div>
             <div>
               <h2 className="text-lg font-black tracking-tight text-slate-900">
-                {periodeMode === 'harian' ? 'BUKU KAS HARI INI' : `BUKU KAS ${namaBulanTahun.toUpperCase()}`}
+                {periodeMode === 'harian' ? 'BUKU KAS HARIAN' : `BUKU KAS ${namaBulanTahun.toUpperCase()}`}
               </h2>
               <span className="text-xs font-bold text-slate-500">
-                Laporan Pendapatan Bersih & Pengeluaran Armada
+                {periodeMode === 'harian' ? labelHariIni : 'Laporan Akumulasi Satu Bulan Penuh'}
               </span>
             </div>
           </div>
           <span className="text-xs font-black bg-slate-100 text-slate-700 px-3 py-1 rounded-full border border-slate-200">
-            {periodeMode === 'harian' ? 'HARI INI' : 'BULAN INI'}
+            {periodeMode === 'harian' ? 'HARI TERPILIH' : 'BULAN INI'}
           </span>
         </div>
 
@@ -279,22 +287,22 @@ export function BukuKasView({
             <span className="text-lg sm:text-xl font-black text-slate-900 block">
               Rp {totalPendapatan.toLocaleString('id-ID')}
             </span>
-            <span className="text-[11px] text-slate-500 font-bold">
-              {currentSetoran.length} Setoran Masuk
+            <span className="text-[10px] font-bold text-slate-500">
+              {currentSetoran.length}x transaksi setoran
             </span>
           </div>
 
-          {/* KOLOM TOTAL PENGELUARAN */}
-          <div className="bg-red-50/60 rounded-2xl p-3 border border-red-200">
+          {/* KOLOM PENGELUARAN */}
+          <div className="bg-slate-50 rounded-2xl p-3 border border-slate-200">
             <div className="flex items-center justify-center gap-1 text-red-600 text-xs font-black uppercase mb-0.5">
               <TrendingDown className="w-3.5 h-3.5" />
               <span>Pengeluaran</span>
             </div>
             <span className="text-lg sm:text-xl font-black text-red-600 block">
-              - Rp {totalPengeluaranKeseluruhan.toLocaleString('id-ID')}
+              Rp {totalPengeluaranKeseluruhan.toLocaleString('id-ID')}
             </span>
-            <span className="text-[11px] text-slate-500 font-bold">
-              {currentPengeluaran.length} Catatan Biaya
+            <span className="text-[10px] font-bold text-slate-500">
+              {currentPengeluaran.length}x catatan biaya
             </span>
           </div>
         </div>
@@ -483,7 +491,7 @@ export function BukuKasView({
               : 'text-slate-600 hover:bg-slate-300/50'
           }`}
         >
-          🟢 Setoran ({currentSetoran.length})
+          💵 Setoran ({currentSetoran.length})
         </button>
         <button
           type="button"
@@ -497,7 +505,7 @@ export function BukuKasView({
               : 'text-slate-600 hover:bg-slate-300/50'
           }`}
         >
-          🔴 Pengeluaran ({currentPengeluaran.length})
+          🔻 Pengeluaran ({currentPengeluaran.length})
         </button>
       </div>
 
@@ -562,7 +570,7 @@ export function BukuKasView({
                         <div className="flex items-center gap-2 text-xs font-bold text-slate-500 mt-0.5">
                           {targetArm ? (
                             <span className="text-red-700 font-bold bg-red-50 px-1.5 py-0.5 rounded border border-red-200">
-                              🚐 {targetArm.platNomor} ({targetArm.namaSopirTetap || 'Sopir'})
+                              🚌 {targetArm.platNomor} ({targetArm.namaSopirTetap || 'Sopir'})
                             </span>
                           ) : (
                             <span className="text-blue-700 font-bold bg-blue-50 px-1.5 py-0.5 rounded border border-blue-200">
@@ -619,7 +627,7 @@ export function BukuKasView({
           ) : (
             <div className="space-y-2">
               {currentSetoran.map((s) => {
-                const dateObj = new Date(s.createdAt)
+                const dateObj = new Date(s.tanggal || s.createdAt)
                 const jam = dateObj.toLocaleTimeString('id-ID', {
                   hour: '2-digit',
                   minute: '2-digit',

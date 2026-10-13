@@ -1,12 +1,13 @@
 'use client'
 
 import { useState } from 'react'
-import { X, TrendingDown, Check, Bus, AlertCircle, Building2, User } from 'lucide-react'
+import { X, TrendingDown, Check, Bus, AlertCircle, Building2, User, Calendar } from 'lucide-react'
 import { addOfflinePengeluaran, OfflineAngkot } from '@/lib/offlineStorage'
 import { playClickSound, playSuccessSound, triggerHaptic } from '@/lib/audio'
 
 interface CatatPengeluaranModalProps {
   isOpen: boolean
+  currentSelectedDate?: string
   onClose: () => void
   onSuccess: (item: { nominal: number; keterangan: string; platNomor?: string; namaSopir?: string }) => void
   angkotList: OfflineAngkot[]
@@ -15,27 +16,38 @@ interface CatatPengeluaranModalProps {
 const QUICK_NOMINALS = [10000, 20000, 50000, 100000, 200000, 500000]
 
 const QUICK_KETERANGAN = [
-  { label: '⛽ Beli Bensin', kategori: 'BBM' },
-  { label: '🛞 Tambal / Ganti Ban', kategori: 'Sparepart' },
-  { label: '🛢️ Ganti Oli', kategori: 'Bengkel' },
-  { label: '🔧 Servis Bengkel', kategori: 'Bengkel' },
-  { label: '🚿 Cuci Mobil', kategori: 'Operasional' },
-  { label: '🎫 Retribusi / Parkir', kategori: 'Operasional' },
-  { label: '🍲 Uang Makan Sopir', kategori: 'Operasional' },
-  { label: '📋 KIR / STNK', kategori: 'Pajak/Surat' },
+  { label: 'Beli Bensin', kategori: 'BBM' },
+  { label: 'Tambal / Ganti Ban', kategori: 'Sparepart' },
+  { label: 'Ganti Oli', kategori: 'Bengkel' },
+  { label: 'Servis Bengkel', kategori: 'Bengkel' },
+  { label: 'Cuci Mobil', kategori: 'Operasional' },
+  { label: 'Retribusi / Parkir', kategori: 'Operasional' },
+  { label: 'Uang Makan Sopir', kategori: 'Operasional' },
+  { label: 'KIR / STNK', kategori: 'Pajak/Surat' },
 ]
 
 export function CatatPengeluaranModal({
   isOpen,
+  currentSelectedDate,
   onClose,
   onSuccess,
   angkotList,
 }: CatatPengeluaranModalProps) {
+  const getTodayStr = () => {
+    const d = new Date()
+    const year = d.getFullYear()
+    const month = String(d.getMonth() + 1).padStart(2, '0')
+    const day = String(d.getDate()).padStart(2, '0')
+    return `${year}-${month}-${day}`
+  }
+
   const [nominalStr, setNominalStr] = useState('')
   const [keterangan, setKeterangan] = useState('')
   const [selectedAngkotId, setSelectedAngkotId] = useState<string>('')
   const [kategori, setKategori] = useState('Operasional')
+  const [targetDateStr, setTargetDateStr] = useState<string>(currentSelectedDate || getTodayStr())
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
   if (!isOpen) return null
 
@@ -51,7 +63,7 @@ export function CatatPengeluaranModal({
 
   const handleQuickKet = (item: { label: string; kategori: string }) => {
     playClickSound()
-    triggerHaptic(30)
+    triggerHaptic(35)
     setKeterangan(item.label)
     setKategori(item.kategori)
     setErrorMsg(null)
@@ -65,6 +77,7 @@ export function CatatPengeluaranModal({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
+    if (isSubmitting) return
 
     if (nominalNumber <= 0) {
       triggerHaptic(100)
@@ -79,16 +92,24 @@ export function CatatPengeluaranModal({
     }
 
     try {
+      setIsSubmitting(true)
       playSuccessSound()
       triggerHaptic(60)
+
+      const targetIsoDate = targetDateStr
+        ? new Date(targetDateStr + 'T12:00:00').toISOString()
+        : new Date().toISOString()
 
       addOfflinePengeluaran({
         angkotId: selectedAngkotId || null,
         nominal: nominalNumber,
         keterangan: keterangan.trim(),
         kategori,
+        tanggal: targetIsoDate,
       })
 
+      // Tutup modal dan callback sukses seketika (mencegah klik 2x)
+      onClose()
       onSuccess({
         nominal: nominalNumber,
         keterangan: keterangan.trim(),
@@ -96,13 +117,14 @@ export function CatatPengeluaranModal({
         namaSopir: selectedArmada?.namaSopirTetap || undefined,
       })
 
-      // Reset
+      // Reset form
       setNominalStr('')
       setKeterangan('')
       setSelectedAngkotId('')
       setErrorMsg(null)
-      onClose()
+      setIsSubmitting(false)
     } catch (err: any) {
+      setIsSubmitting(false)
       setErrorMsg('Gagal menyimpan pengeluaran: ' + err.message)
     }
   }
@@ -135,6 +157,7 @@ export function CatatPengeluaranModal({
               playClickSound()
               onClose()
             }}
+            disabled={isSubmitting}
             className="w-10 h-10 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center cursor-pointer transition-colors"
           >
             <X className="w-6 h-6 stroke-[2.5]" />
@@ -149,6 +172,22 @@ export function CatatPengeluaranModal({
         )}
 
         <form onSubmit={handleSubmit} className="mt-4 space-y-4">
+          {/* PILIHAN TANGGAL MODERN */}
+          <div className="bg-slate-50 border border-slate-200 rounded-2xl p-2.5 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="w-7 h-7 rounded-lg bg-red-100 text-red-700 flex items-center justify-center">
+                <Calendar className="w-4 h-4 stroke-[2.5]" />
+              </div>
+              <span className="text-xs font-black text-slate-700 uppercase">Tgl Pengeluaran:</span>
+            </div>
+            <input
+              type="date"
+              value={targetDateStr}
+              onChange={(e) => setTargetDateStr(e.target.value)}
+              className="bg-white text-slate-900 text-xs font-black px-2.5 py-1.5 rounded-xl border border-slate-300 outline-none cursor-pointer"
+            />
+          </div>
+
           {/* PILIH KETERSEDIAAN ARMADA (NOPOL & NAMA SOPIR) */}
           <div>
             <label className="text-xs font-black tracking-wider text-slate-700 uppercase block mb-1.5">
@@ -302,10 +341,13 @@ export function CatatPengeluaranModal({
           <div className="pt-2">
             <button
               type="submit"
-              className="w-full min-h-[56px] bg-red-600 hover:bg-red-700 active:scale-95 text-white text-base font-black rounded-2xl flex items-center justify-center gap-2 border-2 border-red-700 shadow-lg cursor-pointer transition-all"
+              disabled={isSubmitting}
+              className="w-full min-h-[56px] bg-red-600 hover:bg-red-700 active:scale-95 disabled:opacity-50 text-white text-base font-black rounded-2xl flex items-center justify-center gap-2 border-2 border-red-700 shadow-lg cursor-pointer transition-all"
             >
               <Check className="w-5 h-5 stroke-[3]" />
-              SIMPAN PENGELUARAN (Rp {nominalNumber.toLocaleString('id-ID')})
+              {isSubmitting
+                ? 'MENYIMPAN...'
+                : `SIMPAN PENGELUARAN (Rp ${nominalNumber.toLocaleString('id-ID')})`}
             </button>
           </div>
         </form>

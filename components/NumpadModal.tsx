@@ -1,7 +1,17 @@
 'use client'
 
 import { useState, useTransition, useEffect } from 'react'
-import { X, Delete, Banknote, AlertCircle, RotateCcw, TrendingDown, Plus, Minus, Tag, Bus, User } from 'lucide-react'
+import {
+  X,
+  Delete,
+  Banknote,
+  AlertCircle,
+  RotateCcw,
+  TrendingDown,
+  Bus,
+  User,
+  Calendar
+} from 'lucide-react'
 import { addOfflineSetoran } from '@/lib/offlineStorage'
 import { playClickSound, playSuccessSound, triggerHaptic } from '@/lib/audio'
 
@@ -22,6 +32,7 @@ export interface SelectedAngkotData {
 interface NumpadModalProps {
   isOpen: boolean
   angkot: SelectedAngkotData | null
+  currentSelectedDate?: string // format YYYY-MM-DD
   onClose: () => void
   onSuccess: (result: {
     nominal: number
@@ -44,6 +55,7 @@ const QUICK_EXPENSE_TAGS = [
 export function NumpadModal({
   isOpen,
   angkot,
+  currentSelectedDate,
   onClose,
   onSuccess,
 }: NumpadModalProps) {
@@ -52,22 +64,30 @@ export function NumpadModal({
   const [pengeluaranStr, setPengeluaranStr] = useState<string>('')
   const [ketPengeluaran, setKetPengeluaran] = useState<string>('')
   const [catatan, setCatatan] = useState<string>('')
-  const [showPengeluaran, setShowPengeluaran] = useState<boolean>(false)
+  const [targetDateStr, setTargetDateStr] = useState<string>('')
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
 
+  // Format date helper
+  const getTodayStr = () => {
+    const d = new Date()
+    const year = d.getFullYear()
+    const month = String(d.getMonth() + 1).padStart(2, '0')
+    const day = String(d.getDate()).padStart(2, '0')
+    return `${year}-${month}-${day}`
+  }
+
   useEffect(() => {
-    if (angkot) {
+    if (angkot && isOpen) {
+      setTargetDateStr(currentSelectedDate || getTodayStr())
       if (angkot.setoranHariIni) {
         setNominalStr(angkot.setoranHariIni.nominal.toString())
         if (angkot.setoranHariIni.pengeluaran && angkot.setoranHariIni.pengeluaran > 0) {
           setPengeluaranStr(angkot.setoranHariIni.pengeluaran.toString())
           setKetPengeluaran(angkot.setoranHariIni.keteranganPengeluaran || '')
-          setShowPengeluaran(true)
         } else {
           setPengeluaranStr('')
           setKetPengeluaran('')
-          setShowPengeluaran(false)
         }
         setCatatan(angkot.setoranHariIni.catatan || '')
       } else {
@@ -75,12 +95,11 @@ export function NumpadModal({
         setPengeluaranStr('')
         setKetPengeluaran('')
         setCatatan('')
-        setShowPengeluaran(false)
       }
       setActiveInput('setoran')
       setErrorMessage(null)
     }
-  }, [angkot, isOpen])
+  }, [angkot, isOpen, currentSelectedDate])
 
   if (!isOpen || !angkot) return null
 
@@ -145,13 +164,9 @@ export function NumpadModal({
     }
   }
 
-  const handleQuickNote = (noteText: string) => {
-    playClickSound()
-    triggerHaptic(30)
-    setCatatan(noteText)
-  }
-
   const handleSubmit = () => {
+    if (isPending) return
+
     if (nominalNumber <= 0) {
       triggerHaptic(100)
       setErrorMessage('Nominal uang setoran kotor wajib dimasukkan!')
@@ -175,15 +190,26 @@ export function NumpadModal({
 
     startTransition(() => {
       try {
+        const targetIsoDate = targetDateStr
+          ? new Date(targetDateStr + 'T12:00:00').toISOString()
+          : new Date().toISOString()
+
         addOfflineSetoran({
           angkotId: angkot.id,
           nominal: nominalNumber,
           pengeluaran: pengeluaranNumber,
           keteranganPengeluaran: ketPengeluaran.trim() || undefined,
           catatan,
+          tanggal: targetIsoDate,
         })
+
         playSuccessSound()
         triggerHaptic(70)
+
+        // PENTING: Tutup modal seketika agar tidak bisa ditekan 2x
+        onClose()
+
+        // Panggil callback sukses untuk membuka modal sukses layar penuh
         onSuccess({
           nominal: nominalNumber,
           pengeluaran: pengeluaranNumber,
@@ -191,7 +217,7 @@ export function NumpadModal({
           namaSopir: angkot.namaSopirTetap || 'Sopir',
           status: 'TERCATAT',
         })
-      } catch (err) {
+      } catch {
         setErrorMessage('Gagal menyimpan setoran')
       }
     })
@@ -224,21 +250,33 @@ export function NumpadModal({
           </div>
           <button
             type="button"
-            onClick={() => {
-              playClickSound()
-              onClose()
-            }}
+            onClick={onClose}
             disabled={isPending}
-            className="w-10 h-10 bg-slate-100 hover:bg-slate-200 active:scale-95 text-slate-600 rounded-xl flex items-center justify-center cursor-pointer transition-colors"
-            aria-label="Tutup"
+            className="w-10 h-10 rounded-xl bg-slate-100 hover:bg-slate-200 active:scale-95 text-slate-600 flex items-center justify-center cursor-pointer transition-colors"
           >
-            <X className="w-5 h-5 stroke-[2.5]" />
+            <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* AREA DISPLAY & INPUT */}
         <div className="p-4 space-y-3 bg-slate-50 flex-1 overflow-y-auto">
           
+          {/* PILIHAN TANGGAL TRANSAKSI MODERN */}
+          <div className="bg-white border border-slate-200 rounded-2xl p-2.5 flex items-center justify-between shadow-xs">
+            <div className="flex items-center gap-2">
+              <div className="w-7 h-7 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center">
+                <Calendar className="w-4 h-4 stroke-[2.5]" />
+              </div>
+              <span className="text-xs font-black text-slate-700 uppercase">Tgl Setoran:</span>
+            </div>
+            <input
+              type="date"
+              value={targetDateStr}
+              onChange={(e) => setTargetDateStr(e.target.value)}
+              className="bg-slate-100 hover:bg-slate-200 text-slate-900 text-xs font-black px-2.5 py-1.5 rounded-xl border border-slate-300 outline-none cursor-pointer"
+            />
+          </div>
+
           {/* TAB PILIHAN INPUT: SETORAN ATAU PENGELUARAN */}
           <div className="grid grid-cols-2 gap-2 bg-slate-200/80 p-1 rounded-2xl border border-slate-300">
             <button
@@ -260,7 +298,6 @@ export function NumpadModal({
               type="button"
               onClick={() => {
                 playClickSound()
-                setShowPengeluaran(true)
                 setActiveInput('pengeluaran')
               }}
               className={`py-2 px-3 rounded-xl font-black text-xs sm:text-sm flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
@@ -361,7 +398,7 @@ export function NumpadModal({
 
           {/* PESAN ERROR VALIDASI */}
           {errorMessage && (
-            <div className="bg-red-50 border border-red-200 rounded-xl p-2.5 flex items-center gap-2 text-red-700 text-xs font-bold animate-shake">
+            <div className="bg-red-50 border border-red-200 rounded-xl p-2.5 flex items-center gap-2 text-red-700 text-xs font-bold">
               <AlertCircle className="w-4 h-4 shrink-0 text-red-600" />
               <span>{errorMessage}</span>
             </div>
@@ -374,9 +411,9 @@ export function NumpadModal({
                 key={amt}
                 type="button"
                 onClick={() => handleQuickAdd(amt)}
-                className="h-9 bg-white hover:bg-slate-100 active:scale-95 text-slate-800 text-xs font-black rounded-xl border border-slate-200 shadow-sm cursor-pointer transition-all"
+                className="py-2 rounded-xl bg-white hover:bg-slate-100 active:scale-95 text-slate-800 border border-slate-200 text-xs font-black shadow-xs cursor-pointer transition-all"
               >
-                +{amt / 1000}rb
+                +{amt >= 1000 ? `${amt / 1000}rb` : amt}
               </button>
             ))}
           </div>
@@ -419,11 +456,11 @@ export function NumpadModal({
               type="button"
               onClick={handleSubmit}
               disabled={isPending}
-              className="w-full min-h-[58px] bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white text-lg font-black rounded-2xl flex items-center justify-center gap-2 border-2 border-emerald-700 shadow-lg cursor-pointer transition-transform"
+              className="w-full min-h-[58px] bg-emerald-600 hover:bg-emerald-700 active:scale-95 disabled:opacity-50 text-white text-lg font-black rounded-2xl flex items-center justify-center gap-2 border-2 border-emerald-700 shadow-lg cursor-pointer transition-transform"
             >
               <Banknote className="w-5 h-5 stroke-[2.5]" />
               <span>
-                SIMPAN SETORAN (Rp {setorBersih.toLocaleString('id-ID')})
+                {isPending ? 'MENYIMPAN...' : `SIMPAN SETORAN (Rp ${setorBersih.toLocaleString('id-ID')})`}
               </span>
             </button>
           </div>
