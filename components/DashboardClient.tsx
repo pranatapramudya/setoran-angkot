@@ -79,6 +79,16 @@ export function DashboardClient({
     )
   }
 
+  const handleToday = () => {
+    playClickSound()
+    triggerHaptic(30)
+    const today = new Date()
+    const yStr = today.getFullYear()
+    const mStr = String(today.getMonth() + 1).padStart(2, '0')
+    const dStr = String(today.getDate()).padStart(2, '0')
+    onSelectDate(`${yStr}-${mStr}-${dStr}`)
+  }
+
   const handlePrevDay = () => {
     playClickSound()
     triggerHaptic(30)
@@ -185,50 +195,73 @@ export function DashboardClient({
             </div>
           </div>
 
-          {/* DATE PICKER & NAVIGASI TANGGAL */}
-          <div className="mt-3 pt-3 border-t border-slate-100 flex items-center justify-between gap-2">
-            <button
-              type="button"
-              onClick={handlePrevDay}
-              className="w-8 h-8 rounded-lg bg-slate-100 hover:bg-slate-200 active:scale-95 text-slate-700 flex items-center justify-center cursor-pointer border border-slate-200 transition-colors"
-              title="Hari Sebelumnya"
-            >
-              <ChevronLeft className="w-4 h-4" />
-            </button>
+          {/* DATE PICKER & KALENDER NAVIGASI TANGGAL (JELAS & MENONJOL) */}
+          <div className="mt-3 pt-3 border-t border-slate-100">
+            <div className="flex items-center justify-between gap-2 bg-gradient-to-r from-amber-50 to-orange-50 p-2 rounded-2xl border border-amber-200/80 shadow-sm">
+              <button
+                type="button"
+                onClick={handlePrevDay}
+                className="w-10 h-10 rounded-xl bg-white hover:bg-amber-100 active:scale-95 text-slate-800 flex items-center justify-center cursor-pointer border border-amber-200 shadow-sm transition-all"
+                title="Hari Sebelumnya"
+                aria-label="Hari Sebelumnya"
+              >
+                <ChevronLeft className="w-5 h-5 stroke-[2.5]" />
+              </button>
 
-            <div className="flex-1 flex items-center justify-center gap-2 bg-slate-100/90 hover:bg-slate-200/80 px-3 py-1.5 rounded-xl border border-slate-200 relative cursor-pointer">
-              <Calendar className="w-4 h-4 text-amber-600 shrink-0" />
-              <input
-                type="date"
-                value={selectedDateStr}
-                onChange={(e) => {
-                  if (e.target.value) {
-                    playClickSound()
-                    onSelectDate(e.target.value)
-                  }
-                }}
-                className="absolute inset-0 opacity-0 w-full h-full cursor-pointer z-10"
-              />
-              <div className="text-center">
-                <span className="text-xs font-black text-slate-900 block leading-tight">
-                  {refDate.toLocaleDateString('id-ID', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })}
-                </span>
-                {isToday() && (
-                  <span className="text-[10px] font-black text-emerald-600 block leading-none">
-                    (Hari Ini)
+              <div className="flex-1 relative flex items-center justify-center gap-2 bg-white px-3 py-2 rounded-xl border border-amber-300 shadow-sm hover:border-amber-400 transition-all cursor-pointer">
+                <Calendar className="w-5 h-5 text-amber-600 shrink-0" />
+                <div className="text-center flex-1">
+                  <div className="flex items-center justify-center gap-1.5">
+                    <span className="text-xs sm:text-sm font-black text-slate-900 leading-tight">
+                      {refDate.toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'short', year: 'numeric' })}
+                    </span>
+                    {isToday() ? (
+                      <span className="bg-emerald-100 text-emerald-800 text-[10px] font-black px-1.5 py-0.5 rounded-md border border-emerald-300">
+                        HARI INI
+                      </span>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          handleToday()
+                        }}
+                        className="bg-amber-100 text-amber-800 hover:bg-amber-200 text-[10px] font-black px-1.5 py-0.5 rounded-md border border-amber-300 z-20 cursor-pointer"
+                        title="Kembali ke Hari Ini"
+                      >
+                        Reset Hari Ini
+                      </button>
+                    )}
+                  </div>
+                  <span className="text-[10px] text-slate-400 font-medium block">
+                    Klik untuk buka kalender
                   </span>
-                )}
+                </div>
+                {/* Native date picker input that opens on click */}
+                <input
+                  type="date"
+                  value={selectedDateStr}
+                  onChange={(e) => {
+                    if (e.target.value) {
+                      playClickSound()
+                      onSelectDate(e.target.value)
+                    }
+                  }}
+                  className="absolute inset-0 opacity-0 w-full h-full cursor-pointer z-10"
+                  aria-label="Pilih Tanggal Kalender"
+                />
               </div>
-            </div>
 
-            <button
-              type="button"
-              onClick={handleNextDay}
-              className="w-8 h-8 rounded-lg bg-slate-100 hover:bg-slate-200 active:scale-95 text-slate-700 flex items-center justify-center cursor-pointer border border-slate-200 transition-colors"
-              title="Hari Berikutnya"
-            >
-              <ChevronRight className="w-4 h-4" />
-            </button>
+              <button
+                type="button"
+                onClick={handleNextDay}
+                className="w-10 h-10 rounded-xl bg-white hover:bg-amber-100 active:scale-95 text-slate-800 flex items-center justify-center cursor-pointer border border-amber-200 shadow-sm transition-all"
+                title="Hari Berikutnya"
+                aria-label="Hari Berikutnya"
+              >
+                <ChevronRight className="w-5 h-5 stroke-[2.5]" />
+              </button>
+            </div>
           </div>
 
           {/* BADGE STATUS OPERASIONAL HARI INI */}
