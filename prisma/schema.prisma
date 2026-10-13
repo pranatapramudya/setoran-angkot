@@ -1,0 +1,54 @@
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// Tenancy: Juragan Angkot atau Koperasi Angkot
+model Tenant {
+  id          String    @id @default(cuid())
+  namaJuragan String
+  noHp        String    @unique
+  createdAt   DateTime  @default(now())
+  angkotList  Angkot[]
+  setoranList Setoran[]
+}
+
+// Data Armada Mobil Angkot
+model Angkot {
+  id             String    @id @default(cuid())
+  tenantId       String
+  platNomor      String    // Contoh: D 1902 AB
+  namaSopirTetap String?   // Contoh: Mang Ujang
+  targetHarian   Int       @default(150000) // Nilai target setoran harian (Rp)
+  isActive       Boolean   @default(true)
+  createdAt      DateTime  @default(now())
+
+  tenant         Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  setoranList    Setoran[]
+
+  @@unique([tenantId, platNomor])
+  @@index([tenantId])
+}
+
+// Transaksi Setoran Harian
+model Setoran {
+  id            String   @id @default(cuid())
+  tenantId      String
+  angkotId      String
+  tanggal       DateTime @default(now())
+  nominal       Int      // Nominal yang disetorkan (Rp)
+  targetHariIni Int      // Target pada hari tersebut
+  status        String   // "LUNAS", "KURANG", "LEBIH"
+  catatan       String?  // Misal: "Ganti ban bocor Rp 20.000"
+  createdAt     DateTime @default(now())
+
+  tenant        Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  angkot        Angkot   @relation(fields: [angkotId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, tanggal])
+  @@index([angkotId])
+}
